@@ -1,0 +1,115 @@
+name: Native Windows and Mac builds
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['native/**', '.github/workflows/native-build.yml', 'src/**/Models/**']
+  pull_request:
+    paths: ['native/**', '.github/workflows/native-build.yml', 'src/**/Models/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-2022
+            artifact: HebrewMarks-Windows-x64
+          - name: Mac universal (Apple Silicon and Intel)
+            os: macos-15
+            artifact: HebrewMarks-macOS-universal
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Verify native catalog matches the existing app
+        run: python native/Tests/verify_catalog.py
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        run: cmake -S native -B native/build -A x64
+      - name: Configure universal Mac app
+        if: runner.os == 'macOS'
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+      - name: Compile
+        run: cmake --build native/build --config Release --parallel 3
+      - name: Test catalog and layouts
+        run: ctest --test-dir native/build -C Release --output-on-failure
+      - name: Render Windows palette previews
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $previewPath = Join-Path $env:RUNNER_TEMP 'hebrew-previews'
+          $appPath = (Resolve-Path 'native/build/HebrewMarks_artefacts/Release/Hebrew Marks.exe').Path
+          $preview = Start-Process -FilePath $appPath -ArgumentList "--render `"$previewPath`"" -WindowStyle Hidden -PassThru -Wait
+          if ($preview.ExitCode -ne 0) { throw 'Preview rendering failed' }
+          foreach ($name in @('niqqud.png', 'teamim.png')) {
+            if ((Get-Item (Join-Path $previewPath $name)).Length -lt 100) { throw 'Missing preview' }
+          }
+      - name: Render Mac palette previews
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          'native/build/HebrewMarks_artefacts/Release/Hebrew Marks.app/Contents/MacOS/Hebrew Marks' --render "$RUNNER_TEMP/hebrew-previews"
+          test -s "$RUNNER_TEMP/hebrew-previews/niqqud.png"
+          test -s "$RUNNER_TEMP/hebrew-previews/teamim.png"
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package | Out-Null
+          Copy-Item 'native/build/HebrewMarks_artefacts/Release/Hebrew Marks.exe' package/
+          Copy-Item native/TESTING.md package/README.md
+          Copy-Item native/THIRD_PARTY.md package/
+          Copy-Item native/build/_deps/juce-src/LICENSE.md package/JUCE-LICENSE.md
+          Copy-Item native/build/_deps/juce-src/JUCE.spdx.json package/
+          Compress-Archive -Path package/* -DestinationPath HebrewMarks-Windows-x64.zip
+          Get-FileHash HebrewMarks-Windows-x64.zip -Algorithm SHA256 | Format-List | Out-File HebrewMarks-Windows-x64.sha256.txt
+      - name: Package Mac test app
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='native/build/HebrewMarks_artefacts/Release/Hebrew Marks.app'
+          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/Hebrew Marks"
+          # Ad-hoc signing makes the universal test binary valid on Apple Silicon.
+          # It is not a Developer ID signature or Apple notarization.
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          mkdir -p package
+          ditto "$app" 'package/Hebrew Marks.app'
+          cp native/TESTING.md package/README.md
+          cp native/THIRD_PARTY.md package/
+          cp native/build/_deps/juce-src/LICENSE.md package/JUCE-LICENSE.md
+          cp native/build/_deps/juce-src/JUCE.spdx.json package/
+          ditto -c -k --sequesterRsrc --keepParent package HebrewMarks-macOS-universal.zip
+          shasum -a 256 HebrewMarks-macOS-universal.zip > HebrewMarks-macOS-universal.sha256.txt
+      - name: Save downloadable build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.zip
+            ${{ matrix.artifact }}.sha256.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save palette previews for visual review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}-previews
+          path: ${{ runner.temp }}/hebrew-previews/*.png
+          if-no-files-found: error
+          retention-days: 30

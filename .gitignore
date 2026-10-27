@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.dotnet/
+artifacts/
+.vs/
+*.user
+native/build*/
+.tools/
+*.p12
+*.pfx
+*.mobileprovision

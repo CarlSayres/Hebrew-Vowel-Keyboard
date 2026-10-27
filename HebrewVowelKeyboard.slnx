@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/HebrewVowelKeyboard/HebrewVowelKeyboard.csproj" />
+  <Project Path="tests/HebrewVowelKeyboard.Tests/HebrewVowelKeyboard.Tests.csproj" />
+</Solution>
