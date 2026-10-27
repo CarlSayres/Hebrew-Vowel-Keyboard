@@ -1,4 +1,5 @@
 #include "Palette.h"
+#include "MarkPreview.h"
 
 namespace
 {
@@ -8,7 +9,7 @@ constexpr int headerHeight = 112, cellWidth = 96, cellHeight = 82;
 class MarkButton final : public juce::Button
 {
 public:
-    explicit MarkButton(const Mark& m) : Button(juce::String::fromUTF8(m.name)), mark(m)
+    explicit MarkButton(const Mark& m) : Button(juce::String::fromUTF8(m.name)), mark(m), preview(m.character)
     {
         setWantsKeyboardFocus(false);
         setMouseClickGrabsKeyboardFocus(false);
@@ -22,23 +23,7 @@ public:
         g.setColour(over ? teal : juce::Colour(0xffdce3e8));
         g.drawRoundedRectangle(r, 6, 1);
         g.setColour(ink);
-        const bool drawnDot = mark.character == 0x05c1 || mark.character == 0x05c2
-                           || mark.character == 0x05b9 || mark.character == 0x05ba;
-        juce::String preview;
-        if (!isPunctuation(mark.character)) preview += juce::String::charToString(0x25cc);
-        if (!drawnDot) preview += juce::String::charToString(mark.character);
-        g.setFont(juce::Font(juce::FontOptions("Times New Roman", 32.0f, juce::Font::plain)));
-        juce::AttributedString previewText(preview);
-        previewText.setFont(g.getCurrentFont());
-        previewText.setColour(ink);
-        previewText.setJustification(juce::Justification::centred);
-        previewText.setReadingDirection(juce::AttributedString::rightToLeft);
-        previewText.draw(g, {0.0f,2.0f,static_cast<float>(getWidth()),42.0f});
-        if (drawnDot)
-        {
-            const bool right = mark.character == 0x05c1;
-            g.fillEllipse(getWidth() / 2.0f + (right ? 8.0f : -11.0f), 8.0f, 3.0f, 3.0f);
-        }
+        preview.draw(g,getWidth()/2.0f);
         g.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
         g.drawFittedText(juce::String::fromUTF8(mark.name), 2, 46, getWidth()-4, 13, juce::Justification::centred, 1);
         g.setColour(juce::Colour(0xff667785));
@@ -46,6 +31,7 @@ public:
         g.drawText(juce::String::fromUTF8(mark.hebrew), 2, 60, getWidth()-4, 14, juce::Justification::centred, false);
     }
     const Mark& mark;
+    const MarkPreview preview;
 };
 }
 

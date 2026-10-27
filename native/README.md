@@ -66,6 +66,8 @@ test. The test fixture needs .NET; the shipped native application does not.
 
 - `Source/Catalog.*`: 52 unique marks, 54 displayed buttons and RTL row definitions.
 - `Source/Palette.*`: shared JUCE palette, permission button, language buttons and warning header.
+- `Source/MarkPreview.h`: centers each font outline against a fixed dotted circle,
+  avoiding combining-mark text-layout offsets. These preview paths do not affect inserted text.
 - `Source/PlatformWindows.cpp`: nonactivating HWND, SendInput, focused editor layout, explicit selection request.
 - `Source/PlatformMac.mm`: nonactivating NSPanel, Core Graphics Unicode events, Text Input Sources, Control-Option-H.
 - `Source/Platform.h`: shared output boundary for future MIDI/keypad sources.
