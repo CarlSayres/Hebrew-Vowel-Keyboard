@@ -41,6 +41,11 @@ retained for 30 days. The Mac job checks both architectures and ad-hoc signs the
 app. No Apple credentials or repository write permission are needed for these
 test builds. This workflow does not publish releases or upload to an app store.
 
+The Windows job also builds an explicitly **unsigned test installer**, verifies
+install/reinstall/uninstall on the disposable runner, and uploads it separately.
+See [installer/README.md](installer/README.md) for installer behavior and the
+publisher credentials still required for signed distribution on Windows and Mac.
+
 For distribution beyond testing, Developer ID signing and notarization can be
 added later using repository secrets. Do not commit certificates or credentials.
 Ad-hoc signing is not notarization and does not establish a verified publisher.

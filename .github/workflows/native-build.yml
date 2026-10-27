@@ -78,6 +78,25 @@ jobs:
           Copy-Item native/build/_deps/juce-src/JUCE.spdx.json package/
           Compress-Archive -Path package/* -DestinationPath HebrewMarks-Windows-x64.zip
           Get-FileHash HebrewMarks-Windows-x64.zip -Algorithm SHA256 | Format-List | Out-File HebrewMarks-Windows-x64.sha256.txt
+      - name: Build unsigned Windows test installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./native/installer/build-windows-installer.ps1 -SourceDir package -OutputDir installer-output
+      - name: Test Windows install and uninstall
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem installer-output/*-Setup-unsigned.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer' }
+          ./native/installer/test-windows-installer.ps1 -Installer $installers[0].FullName
+      - name: Save unsigned Windows test installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: HebrewMarks-Windows-Setup-unsigned
+          path: installer-output/*
+          if-no-files-found: error
+          retention-days: 30
       - name: Package Mac test app
         if: runner.os == 'macOS'
         shell: bash
